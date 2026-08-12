@@ -125,7 +125,927 @@ function saveNote(){
   const marker=L.marker(lastNotePosition).addTo(map).bindPopup('📍 '+text);
   markers.push(marker);
   $('noteBox').style.display='none';
+}<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>散歩記録</title>
+
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+
+<style>
+*{box-sizing:border-box}
+
+body{
+  margin:0;
+  font-family:system-ui,-apple-system,"Noto Sans JP",sans-serif;
+  background:#f5f5f5;
+  color:#222;
 }
+
+header{
+  background:#2f6f4e;
+  color:white;
+  padding:12px;
+  text-align:center;
+  font-size:24px;
+  font-weight:700;
+}
+
+main{
+  max-width:700px;
+  margin:auto;
+  padding:12px;
+}
+
+#map{
+  height:55vh;
+  min-height:360px;
+  border-radius:14px;
+  overflow:hidden;
+  background:#ddd;
+}
+
+.card{
+  background:white;
+  border-radius:14px;
+  padding:16px;
+  margin-top:12px;
+  box-shadow:0 2px 8px rgba(0,0,0,.08);
+}
+
+.status{
+  font-size:20px;
+  font-weight:700;
+  margin-bottom:12px;
+}
+
+.stats{
+  display:grid;
+  grid-template-columns:1fr 1fr 1fr;
+  gap:10px;
+}
+
+.stat{
+  background:#eef4f0;
+  border-radius:12px;
+  padding:12px 5px;
+  text-align:center;
+}
+
+.stat-label{
+  font-size:15px;
+}
+
+.stat-value{
+  font-size:21px;
+  font-weight:700;
+  margin-top:4px;
+}
+
+button{
+  border:none;
+  border-radius:10px;
+  padding:13px 18px;
+  font-size:17px;
+  font-weight:700;
+  cursor:pointer;
+}
+
+.start-btn{
+  background:#2f6f4e;
+  color:white;
+  width:100%;
+  margin-top:14px;
+}
+
+.stop-btn{
+  background:#b94a48;
+  color:white;
+  width:100%;
+  margin-top:10px;
+}
+
+.save-btn{
+  background:#3678b7;
+  color:white;
+  width:100%;
+  margin-top:12px;
+}
+
+button:disabled{
+  opacity:.45;
+  cursor:not-allowed;
+}
+
+input{
+  width:100%;
+  padding:12px;
+  border:1px solid #ccc;
+  border-radius:9px;
+  font-size:17px;
+  margin-top:6px;
+}
+
+label{
+  display:block;
+  margin-top:12px;
+  font-weight:700;
+}
+
+.history-title{
+  font-size:21px;
+  font-weight:700;
+  margin-bottom:10px;
+}
+
+.history-item{
+  background:#f4f7f5;
+  border-radius:10px;
+  padding:12px;
+  margin-top:9px;
+  cursor:pointer;
+}
+
+.history-item:hover{
+  background:#e8f0eb;
+}
+
+.history-date{
+  font-weight:700;
+  font-size:17px;
+}
+
+.history-name{
+  margin-top:4px;
+  font-size:16px;
+}
+
+.history-distance{
+  margin-top:4px;
+  color:#555;
+}
+
+.empty{
+  color:#777;
+  text-align:center;
+  padding:12px;
+}
+
+.note{
+  font-size:14px;
+  color:#666;
+  line-height:1.6;
+  margin-top:10px;
+}
+</style>
+</head>
+
+<body>
+
+<header>🚶 散歩記録</header>
+
+<main>
+
+<div id="map"></div>
+
+<div class="card">
+
+  <div class="status" id="status">
+    散歩を始める準備ができています
+  </div>
+
+  <div class="stats">
+
+    <div class="stat">
+      <div class="stat-label">開始</div>
+      <div class="stat-value" id="startTime">--:--</div>
+    </div>
+
+    <div class="stat">
+      <div class="stat-label">経過</div>
+      <div class="stat-value" id="elapsed">00:00</div>
+    </div>
+
+    <div class="stat">
+      <div class="stat-label">距離</div>
+      <div class="stat-value" id="distance">0 m</div>
+    </div>
+
+  </div>
+
+  <button class="start-btn" id="startBtn">
+    🚶 散歩開始
+  </button>
+
+  <button class="stop-btn" id="stopBtn" disabled>
+    ⏹ 散歩終了
+  </button>
+
+</div>
+
+
+<div class="card" id="saveCard" style="display:none">
+
+  <div class="history-title">
+    今日の散歩を記録する
+  </div>
+
+  <label>
+    散歩の名前
+    <input
+      type="text"
+      id="walkName"
+      placeholder="例：○○公園を散歩"
+    >
+  </label>
+
+  <label>
+    メモ
+    <input
+      type="text"
+      id="walkMemo"
+      placeholder="例：天気がよく、気持ちよかった"
+    >
+  </label>
+
+  <button class="save-btn" id="saveBtn">
+    💾 この散歩を保存する
+  </button>
+
+</div>
+
+
+<div class="card">
+
+  <div class="history-title">
+    📖 過去の散歩を見る
+  </div>
+
+  <label>
+    日付を選ぶ
+    <input type="date" id="searchDate">
+  </label>
+
+  <div id="historyList">
+    <div class="empty">
+      保存した散歩がここに表示されます
+    </div>
+  </div>
+
+  <div class="note">
+    日付を選ぶと、その日に歩いたルートを地図に表示できます。
+  </div>
+
+</div>
+
+</main>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+<script>
+
+const map = L.map("map").setView([35.681236,139.767125],13);
+
+L.tileLayer(
+  "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+  {
+    attribution:
+      '&copy; OpenStreetMap contributors'
+  }
+).addTo(map);
+
+
+let watchId = null;
+let walkPoints = [];
+let totalDistance = 0;
+let startTimestamp = null;
+let timerId = null;
+let routeLine = null;
+let currentMarker = null;
+
+
+// -------------------------
+// 距離計算
+// -------------------------
+
+function distanceBetween(lat1,lon1,lat2,lon2){
+
+  const R = 6371000;
+
+  const p1 = lat1 * Math.PI / 180;
+  const p2 = lat2 * Math.PI / 180;
+
+  const dp =
+    (lat2-lat1) * Math.PI / 180;
+
+  const dl =
+    (lon2-lon1) * Math.PI / 180;
+
+  const a =
+    Math.sin(dp/2) * Math.sin(dp/2) +
+    Math.cos(p1) *
+    Math.cos(p2) *
+    Math.sin(dl/2) *
+    Math.sin(dl/2);
+
+  const c =
+    2 * Math.atan2(
+      Math.sqrt(a),
+      Math.sqrt(1-a)
+    );
+
+  return R*c;
+}
+
+
+// -------------------------
+// 距離表示
+// -------------------------
+
+function updateDistance(){
+
+  if(totalDistance < 1000){
+
+    document.getElementById("distance").textContent =
+      Math.round(totalDistance) + " m";
+
+  }else{
+
+    document.getElementById("distance").textContent =
+      (totalDistance/1000).toFixed(2) + " km";
+
+  }
+
+}
+
+
+// -------------------------
+// 経過時間
+// -------------------------
+
+function updateElapsed(){
+
+  if(!startTimestamp) return;
+
+  const sec =
+    Math.floor(
+      (Date.now()-startTimestamp)/1000
+    );
+
+  const h =
+    Math.floor(sec/3600);
+
+  const m =
+    Math.floor((sec%3600)/60);
+
+  const s =
+    sec%60;
+
+  document.getElementById("elapsed").textContent =
+    String(h).padStart(2,"0") + ":" +
+    String(m).padStart(2,"0") + ":" +
+    String(s).padStart(2,"0");
+
+}
+
+
+// -------------------------
+// GPS位置取得
+// -------------------------
+
+function onPosition(position){
+
+  const lat =
+    position.coords.latitude;
+
+  const lon =
+    position.coords.longitude;
+
+
+  const point = {
+    lat:lat,
+    lon:lon,
+    time:Date.now()
+  };
+
+
+  if(walkPoints.length > 0){
+
+    const previous =
+      walkPoints[walkPoints.length-1];
+
+    totalDistance +=
+      distanceBetween(
+        previous.lat,
+        previous.lon,
+        lat,
+        lon
+      );
+
+  }
+
+
+  walkPoints.push(point);
+
+  updateDistance();
+
+
+  if(!routeLine){
+
+    routeLine =
+      L.polyline(
+        [[lat,lon]],
+        {
+          color:"#2f6f4e",
+          weight:5
+        }
+      ).addTo(map);
+
+  }else{
+
+    routeLine.addLatLng([lat,lon]);
+
+  }
+
+
+  if(currentMarker){
+
+    currentMarker.setLatLng([lat,lon]);
+
+  }else{
+
+    currentMarker =
+      L.marker([lat,lon])
+      .addTo(map)
+      .bindPopup("現在地");
+
+  }
+
+
+  map.setView([lat,lon],16);
+
+}
+
+
+// -------------------------
+// GPSエラー
+// -------------------------
+
+function onGpsError(error){
+
+  let message =
+    "GPSを取得できませんでした。";
+
+  if(error.code === 1){
+
+    message =
+      "位置情報の利用が許可されていません。";
+
+  }else if(error.code === 2){
+
+    message =
+      "現在地を取得できませんでした。";
+
+  }else if(error.code === 3){
+
+    message =
+      "GPSの取得がタイムアウトしました。";
+
+  }
+
+  alert(message);
+
+}
+
+
+// -------------------------
+// 散歩開始
+// -------------------------
+
+document.getElementById("startBtn")
+.addEventListener("click",function(){
+
+  if(!navigator.geolocation){
+
+    alert("この端末ではGPSを利用できません。");
+
+    return;
+  }
+
+
+  walkPoints = [];
+
+  totalDistance = 0;
+
+  startTimestamp = Date.now();
+
+
+  if(routeLine){
+
+    map.removeLayer(routeLine);
+    routeLine = null;
+
+  }
+
+
+  if(currentMarker){
+
+    map.removeLayer(currentMarker);
+    currentMarker = null;
+
+  }
+
+
+  updateDistance();
+
+  document.getElementById("startTime")
+    .textContent =
+    new Date().toLocaleTimeString(
+      "ja-JP",
+      {
+        hour:"2-digit",
+        minute:"2-digit"
+      }
+    );
+
+
+  document.getElementById("status")
+    .textContent =
+    "🚶 散歩中です";
+
+
+  document.getElementById("startBtn")
+    .disabled = true;
+
+  document.getElementById("stopBtn")
+    .disabled = false;
+
+
+  timerId =
+    setInterval(updateElapsed,1000);
+
+
+  watchId =
+    navigator.geolocation.watchPosition(
+      onPosition,
+      onGpsError,
+      {
+        enableHighAccuracy:true,
+        maximumAge:5000,
+        timeout:15000
+      }
+    );
+
+});
+
+
+// -------------------------
+// 散歩終了
+// -------------------------
+
+document.getElementById("stopBtn")
+.addEventListener("click",function(){
+
+  if(watchId !== null){
+
+    navigator.geolocation.clearWatch(watchId);
+
+    watchId = null;
+
+  }
+
+
+  clearInterval(timerId);
+
+  timerId = null;
+
+
+  document.getElementById("status")
+    .textContent =
+    "散歩が終了しました";
+
+
+  document.getElementById("startBtn")
+    .disabled = false;
+
+  document.getElementById("stopBtn")
+    .disabled = true;
+
+
+  if(walkPoints.length < 2){
+
+    alert(
+      "歩いた位置が十分に記録されませんでした。"
+    );
+
+    return;
+
+  }
+
+
+  document.getElementById("saveCard")
+    .style.display = "block";
+
+
+  document.getElementById("walkName")
+    .focus();
+
+});
+
+
+// -------------------------
+// 保存
+// -------------------------
+
+document.getElementById("saveBtn")
+.addEventListener("click",function(){
+
+  if(walkPoints.length < 2){
+
+    alert("保存できるルートがありません。");
+
+    return;
+
+  }
+
+
+  const name =
+    document.getElementById("walkName")
+    .value.trim() ||
+    "散歩";
+
+
+  const memo =
+    document.getElementById("walkMemo")
+    .value.trim();
+
+
+  const firstPoint =
+    walkPoints[0];
+
+
+  const date =
+    new Date(firstPoint.time)
+    .toISOString()
+    .slice(0,10);
+
+
+  const walks =
+    JSON.parse(
+      localStorage.getItem("sanpoWalks") || "[]"
+    );
+
+
+  const walk = {
+
+    id:Date.now(),
+
+    date:date,
+
+    name:name,
+
+    memo:memo,
+
+    distance:totalDistance,
+
+    points:walkPoints
+
+  };
+
+
+  walks.push(walk);
+
+
+  localStorage.setItem(
+    "sanpoWalks",
+    JSON.stringify(walks)
+  );
+
+
+  alert("散歩を保存しました！");
+
+
+  document.getElementById("walkName")
+    .value = "";
+
+  document.getElementById("walkMemo")
+    .value = "";
+
+  document.getElementById("saveCard")
+    .style.display = "none";
+
+
+  loadHistory(date);
+
+});
+
+
+// -------------------------
+// 過去の散歩を表示
+// -------------------------
+
+function loadHistory(selectedDate){
+
+  const walks =
+    JSON.parse(
+      localStorage.getItem("sanpoWalks") || "[]"
+    );
+
+
+  const list =
+    document.getElementById("historyList");
+
+
+  const filtered =
+    walks
+    .filter(w => w.date === selectedDate)
+    .sort(
+      (a,b) => b.id-a.id
+    );
+
+
+  list.innerHTML = "";
+
+
+  if(filtered.length === 0){
+
+    list.innerHTML =
+      '<div class="empty">この日の散歩記録はありません。</div>';
+
+    return;
+
+  }
+
+
+  filtered.forEach(walk => {
+
+    const item =
+      document.createElement("div");
+
+    item.className = "history-item";
+
+
+    const km =
+      walk.distance >= 1000
+      ? (walk.distance/1000).toFixed(2)+" km"
+      : Math.round(walk.distance)+" m";
+
+
+    item.innerHTML =
+
+      '<div class="history-date">' +
+      walk.date +
+      '</div>' +
+
+      '<div class="history-name">' +
+      '🚶 ' + escapeHtml(walk.name) +
+      '</div>' +
+
+      '<div class="history-distance">' +
+      '距離：' + km +
+      '</div>' +
+
+      (
+        walk.memo
+        ? '<div class="history-distance">' +
+          escapeHtml(walk.memo) +
+          '</div>'
+        : ''
+      );
+
+
+    item.addEventListener(
+      "click",
+      function(){
+
+        showWalkOnMap(walk);
+
+      }
+    );
+
+
+    list.appendChild(item);
+
+  });
+
+}
+
+
+// -------------------------
+// 地図に過去のルートを表示
+// -------------------------
+
+function showWalkOnMap(walk){
+
+  if(routeLine){
+
+    map.removeLayer(routeLine);
+
+    routeLine = null;
+
+  }
+
+
+  if(currentMarker){
+
+    map.removeLayer(currentMarker);
+
+    currentMarker = null;
+
+  }
+
+
+  const latlngs =
+    walk.points.map(
+      p => [p.lat,p.lon]
+    );
+
+
+  routeLine =
+    L.polyline(
+      latlngs,
+      {
+        color:"#3678b7",
+        weight:6
+      }
+    ).addTo(map);
+
+
+  map.fitBounds(
+    routeLine.getBounds(),
+    {
+      padding:[30,30]
+    }
+  );
+
+
+  L.marker(latlngs[0])
+    .addTo(map)
+    .bindPopup(
+      "散歩開始"
+    )
+    .openPopup();
+
+
+  const last =
+    latlngs[latlngs.length-1];
+
+
+  L.marker(last)
+    .addTo(map)
+    .bindPopup(
+      "散歩終了"
+    );
+
+}
+
+
+// -------------------------
+// HTMLエスケープ
+// -------------------------
+
+function escapeHtml(text){
+
+  return String(text)
+    .replace(/&/g,"&amp;")
+    .replace(/</g,"&lt;")
+    .replace(/>/g,"&gt;")
+    .replace(/"/g,"&quot;")
+    .replace(/'/g,"&#039;");
+
+}
+
+
+// -------------------------
+// 今日の日付をセット
+// -------------------------
+
+const today =
+  new Date()
+  .toISOString()
+  .slice(0,10);
+
+
+document.getElementById("searchDate")
+  .value = today;
+
+
+document.getElementById("searchDate")
+.addEventListener(
+  "change",
+  function(){
+
+    loadHistory(this.value);
+
+  }
+);
+
+
+loadHistory(today);
+
+
 function renderLog(r){
   const notesHtml=r.notes.length ? r.notes.map(n=>`<div class="item">📍 ${n.text}</div>`).join('') : '<div class="item">見たもののメモはありません。</div>';
   $('log').innerHTML=`<div class="item">📅 ${r.date}</div>
